@@ -7,27 +7,29 @@
 
 import Foundation
 
-/// Протокол общения XMLParserService и интерактора модуля News
-protocol XMLParserServiceOutputProtocol: AnyObject {
-
-	/// Сообщить интерактору результат парсинга в виде данных в формате массива RSSItemModel или сообщить об ошибке
-	func didParseData(_ result: Result<[RSSItemModel], Error>)
-}
-
 /// Сервис осуществляет парсинг данных в формате XML
 final class XMLParserService: NSObject {
 
-	/// Интерактор модуля News
-	weak var interactor: XMLParserServiceOutputProtocol?
-
-	/// Метод осуществляет парсинг данных в формате XML
-	func parseXML(data: Data) {
+	func parseXML(data: Data, completionHandler: ((Result<[RSSItemModel], Error>) -> Void)?) {
+		self.parserCompletionHandler = completionHandler
 		let parser = XMLParser(data: data)
 		parser.delegate = self
 		parser.parse()
 	}
 
 	// MARK: - Private
+	private enum ElementType: String {
+		case item
+		case enclosure
+
+		init?(rawValue: String) {
+			switch rawValue {
+			case "item": self = .item
+			case "enclosure": self = .enclosure
+			default: return nil
+			}
+		}
+	}
 
 	private var rssItems: [RSSItemModel] = []
 	private var currentElement: String = ""
@@ -43,6 +45,12 @@ final class XMLParserService: NSObject {
 		}
 	}
 	private var currentUrlToImage: String = ""
+	private var currentLinkToSource: String = "" {
+		didSet {
+			currentLinkToSource = deleteWhiteSpacesAndNewLines(from: currentLinkToSource)
+		}
+	}
+	private var parserCompletionHandler: ((Result<[RSSItemModel], Error>) -> Void)?
 
 	private func deleteWhiteSpacesAndNewLines(from string: String) -> String {
 		return string.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -54,6 +62,13 @@ final class XMLParserService: NSObject {
 		guard let date = df.date(from: pubDate) else { return nil }
 		return date
 	}
+
+	private func changePubDateToBeautifulString(_ pubDate: Date) -> String {
+		let df = DateFormatter()
+		df.dateFormat = "MM-dd-yyyy HH:mm"
+		df.locale = Locale(identifier: "ru_RU")
+		return df.string(from: pubDate)
+	}
 }
 
 // MARK: - Protocol Confirmation XMLParserDelegate
@@ -64,20 +79,22 @@ extension XMLParserService: XMLParserDelegate {
 
 		currentElement = elementName
 
-		if currentElement == "item" {
+		guard let elementType = ElementType(rawValue: currentElement) else { return }
+
+		switch elementType {
+		case .item:
 			currentTitle = ""
 			currentPubDate = ""
 			currentUrlToImage = ""
+			currentLinkToSource = ""
 			weAreInsideItem = true
-		}
-
-		if currentElement == "enclosure" {
-			if weAreInsideItem == true {
-				if attributeDict["type"] != nil && attributeDict["type"] == "image/jpeg" {
-					guard let urlToImage = attributeDict["url"] else { return }
-					currentUrlToImage = urlToImage
-				}
-			}
+		case .enclosure:
+			guard weAreInsideItem,
+				  attributeDict["type"] != nil,
+				  attributeDict["type"] == "image/jpeg",
+				  let urlToImage = attributeDict["url"]
+			else { return }
+			currentUrlToImage = urlToImage
 			weAreInsideItem = false
 		}
 	}
@@ -85,9 +102,10 @@ extension XMLParserService: XMLParserDelegate {
 	func parser(_ parser: XMLParser, foundCharacters string: String) {
 
 		switch currentElement {
-			case "title": currentTitle += string
-			case "pubDate": currentPubDate += string
-			default: break
+		case "title": currentTitle += string
+		case "link": currentLinkToSource += string
+		case "pubDate": currentPubDate += string
+		default: break
 		}
 	}
 
@@ -95,16 +113,22 @@ extension XMLParserService: XMLParserDelegate {
 
 		if elementName == "item" {
 			guard let currentPubDate = convertStringToDate(currentPubDate) else { return }
-			let rssItem = RSSItemModel(title: currentTitle, pubDate: currentPubDate, urlToImage: currentUrlToImage)
+			let pubDateBeautifulString = changePubDateToBeautifulString(currentPubDate)
+
+			let rssItem = RSSItemModel(title: currentTitle,
+									   pubDate: currentPubDate,
+									   pubDateBeautifulString: pubDateBeautifulString,
+									   linkToSource: currentLinkToSource,
+									   urlToImage: currentUrlToImage)
 			rssItems.append(rssItem)
 		}
 	}
 
 	func parserDidEndDocument(_ parser: XMLParser) {
-		interactor?.didParseData(.success(rssItems))
+		parserCompletionHandler?(.success(rssItems))
 	}
 
 	func parser(_ parser: XMLParser, parseErrorOccurred parseError: Error) {
-		interactor?.didParseData(.failure(parseError))
+		parserCompletionHandler?(.failure(parseError))
 	}
 }

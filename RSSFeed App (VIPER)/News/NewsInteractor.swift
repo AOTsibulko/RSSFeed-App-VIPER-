@@ -12,6 +12,10 @@ protocol NewsInteractorProtocol {
 
 	/// Получить новости
 	func fetchNews()
+
+	/// Загрузить изображение для новости
+	/// - Parameter rssItem: новость, для которой нужно загрузить изображение
+	func downloadImageFor(rssItem: RSSItemModel)
 }
 
 /// Протокол общения интерактора  модуля News с презентером модуля News
@@ -21,6 +25,11 @@ protocol NewsInteractorOutputProtocol: AnyObject {
 	///
 	/// - Parameter result: блок с результами
 	func didFetchNews(_ result: Result<[RSSItemModel], Error>)
+
+	/// Метод передает презентеру новость с загруженным изображением
+	///
+	/// - Parameter rssItem: новость с загруженным изображением
+	func didFetchImageForCell(_ rssItem: RSSItemModel)
 }
 
 /// Интерактор модуля News
@@ -28,6 +37,14 @@ final class NewsInteractor: NSObject {
 
 	/// Презентер модуля News
 	weak var presenter: NewsInteractorOutputProtocol?
+
+	private let networkService: NetworkServiceProtocol
+
+	/// Инициализатор интерактора
+	/// - Parameter networkService: сервис, получающий данные из сети Интернет
+	init(networkService: NetworkServiceProtocol) {
+		self.networkService = networkService
+	}
 }
 
 // MARK: - Protocol Confirmation NewsInteractorProtocol
@@ -35,37 +52,45 @@ final class NewsInteractor: NSObject {
 extension NewsInteractor: NewsInteractorProtocol {
 
 	func fetchNews() {
-		let urlString = "http://static.feed.rbc.ru/rbc/logical/footer/news.rss"
-		guard let url = URL(string: urlString) else {
-			return
-		}
-		let request = URLRequest(url: url)
-		let task = URLSession.shared.dataTask(with: request) { data, response, error in
-			guard let data = data else {
-				if let error = error {
-					print(error.localizedDescription)
+
+		let url = "http://static.feed.rbc.ru/rbc/logical/footer/news.rss"
+
+		networkService.getData(from: url) { [weak self] (result) in
+			guard let strongSelf = self else { return }
+			switch result {
+			case .success(let data):
+				let parserService = XMLParserService()
+				parserService.parseXML(data: data) { [weak self] (result) in
+					guard let strongSelf = self else { return }
+					switch result {
+					case .success(let rssItems):
+						strongSelf.presenter?.didFetchNews(.success(rssItems))
+					case .failure(let error):
+						strongSelf.presenter?.didFetchNews(.failure(error))
+					}
 				}
-				return
+			case .failure(let error):
+				strongSelf.presenter?.didFetchNews(.failure(error))
 			}
-
-			let parser = XMLParserService()
-			parser.interactor = self
-			parser.parseXML(data: data)
 		}
-		task.resume()
+	}
+
+	func downloadImageFor(rssItem: RSSItemModel) {
+
+		networkService.getData(from: rssItem.urlToImage) { [weak self] result in
+			guard let strongSelf = self else { return }
+			switch result {
+			case .success(let data):
+				guard let image = UIImage(data: data) else {
+					return
+				}
+				var newRssItem = rssItem
+				newRssItem.image = image
+				strongSelf.presenter?.didFetchImageForCell(newRssItem)
+			case .failure:
+				break
+			}
+		}
 	}
 }
 
-// MARK: - Protocol Confirmation XMLParserServiceOutputProtocol
-
-extension NewsInteractor: XMLParserServiceOutputProtocol {
-
-	func didParseData(_ result: Result<[RSSItemModel], Error>) {
-		switch result {
-		case .success(let rssItems):
-			presenter?.didFetchNews(.success(rssItems))
-		case .failure(let error):
-			presenter?.didFetchNews(.failure(error))
-		}
-	}
-}

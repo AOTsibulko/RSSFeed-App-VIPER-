@@ -12,6 +12,14 @@ protocol NewsPresenterProtocol: AnyObject {
 
 	/// Метод информирует презентер о том, что экран модуля News загрузился
 	func viewDidLoad()
+
+	/// Метод информирует презентер о том, что пользователь нажал на новость на экране модуля News
+	/// - Parameter rssItem: новость на которую нажал пользователь
+	func didTapNewsCell(with rssItem: RSSItemModel)
+
+	/// Метод информирует презентер о том, что нужно загрузить изображение для ячейки таблицы на экране модуля News
+	/// - Parameter rssItem: новость, для которой нужно загрузить изображение
+	func viewNeedsImageForCellWith(rssItem: RSSItemModel)
 }
 
 /// Презентер модуля News
@@ -54,6 +62,14 @@ extension NewsPresenter: NewsPresenterProtocol {
 	func viewDidLoad() {
 		interactor.fetchNews()
 	}
+
+	func didTapNewsCell(with rssItem: RSSItemModel) {
+		router.goToNewsDetails(with: rssItem)
+	}
+
+	func viewNeedsImageForCellWith(rssItem: RSSItemModel) {
+		interactor.downloadImageFor(rssItem: rssItem)
+	}
 }
 
 //MARK: - Protocol Confirmation NewsInteractorOutputProtocol
@@ -67,5 +83,9 @@ extension NewsPresenter: NewsInteractorOutputProtocol {
 		case .failure(_):
 			showErrorAlert()
 		}
+	}
+
+	func didFetchImageForCell(_ result: RSSItemModel) {
+		view?.updateCell(with: result)
 	}
 }

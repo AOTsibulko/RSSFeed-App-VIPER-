@@ -95,13 +95,14 @@
                             <constraint firstItem="6Tk-OE-BBY" firstAttribute="bottom" secondItem="Oo6-0b-Q88" secondAttribute="bottom" id="kMK-pD-YwK"/>
                         </constraints>
                     </view>
+                    <navigationItem key="navigationItem" id="y5C-q7-oWv"/>
                     <connections>
                         <outlet property="tableView" destination="Oo6-0b-Q88" id="e71-SR-0aQ"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="18.840579710144929" y="75"/>
+            <point key="canvasLocation" x="512" y="64"/>
         </scene>
     </scenes>
     <resources>

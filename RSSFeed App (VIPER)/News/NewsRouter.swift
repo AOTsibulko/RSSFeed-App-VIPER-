@@ -11,7 +11,12 @@ import UIKit
 protocol NewsRouterProtocol {
 
 	/// Показать сообщение об ошибке
+	/// - Parameter alert: контроллер, показывающий сообщение
 	func showError(alert: UIAlertController)
+
+	/// Перейти к модулю NewsDetails
+	/// - Parameter rssItem: новость, которая передается в модуль NewsDetails
+	func goToNewsDetails(with rssItem: RSSItemModel)
 }
 
 /// Роутер модуля News
@@ -28,5 +33,10 @@ extension NewsRouter: NewsRouterProtocol {
 		DispatchQueue.main.async {
 			self.viewController?.present(alert, animated: true, completion: nil)
 		}
+	}
+
+	func goToNewsDetails(with rssItem: RSSItemModel) {
+		guard let newsDetailsVC = NewsDetailsAssembly().makeNewsDetailsModule(with: rssItem) else { return }
+		viewController?.navigationController?.pushViewController(newsDetailsVC, animated: true)
 	}
 }

@@ -29,7 +29,7 @@ final class RSSItemCell: UITableViewCell {
 
 		rssItemToDisplay = rssItem
 		rssItemTitleLabel?.text = rssItem.title
-		rssItemDateLabel?.text = rssItem.getPubDateInStringFormat()
+		rssItemDateLabel?.text = rssItem.pubDateBeautifulString
 
 		if rssItem.image != nil {
 			rssItemImageView?.image = rssItem.image
@@ -37,14 +37,5 @@ final class RSSItemCell: UITableViewCell {
 		}
 
 		rssItemImageView?.image = rssItem.defaultImage
-
-		rssItem.getImage { [weak self, rssItem] image in
-			guard let strongSelf = self,
-				  image != nil,
-				  strongSelf.rssItemToDisplay === rssItem
-			else { return }
-
-			strongSelf.rssItemImageView?.image = image
-		}
 	}
 }

@@ -25,7 +25,7 @@ final class NewsAssembly: NewsAssemblyProtocol {
 		guard let view = storyboard.instantiateViewController(identifier: "NewsViewController") as? NewsViewController else {
 			return nil
 		}
-		let interactor = NewsInteractor()
+		let interactor = NewsInteractor(networkService: NetworkService())
 		let router = NewsRouter()
 		let presenter = NewsPresenter(with: view, interactor: interactor, router: router)
 		interactor.presenter = presenter

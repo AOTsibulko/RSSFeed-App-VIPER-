@@ -14,9 +14,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 	func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
 		guard let windowScene = (scene as? UIWindowScene) else { return }
 
-		let initialVC = NewsAssembly().makeNewsModule()
+		guard let initialVC = NewsAssembly().makeNewsModule() else { return }
+		let navVC = UINavigationController(rootViewController: initialVC)
 		let window = UIWindow(windowScene: windowScene)
-		window.rootViewController = initialVC
+		window.rootViewController = navVC
 		self.window = window
 		window.makeKeyAndVisible()
 	}

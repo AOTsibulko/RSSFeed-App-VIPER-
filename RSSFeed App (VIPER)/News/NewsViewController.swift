@@ -14,6 +14,11 @@ protocol NewsViewProtocol: AnyObject {
 	///
 	/// - Parameter rssItems: массив, содержащий новости в формате моделей RSSItemModel
 	func update(with rssItems: [RSSItemModel])
+
+	/// Обновить  ячейку с помощью параметра
+	///
+	/// - Parameter rssItem: новость в формате RSSItemModel
+	func updateCell(with rssItem: RSSItemModel)
 }
 
 /// Экран модуля News
@@ -33,6 +38,7 @@ final class NewsViewController: UIViewController {
 	override func viewDidLoad() {
 		super.viewDidLoad()
 		tableView?.dataSource = self
+		tableView?.delegate = self
 		presenter?.viewDidLoad()
 	}
 }
@@ -49,8 +55,22 @@ extension NewsViewController: UITableViewDataSource {
 		guard let cell = tableView.dequeueReusableCell(withIdentifier: "RSSItemCell",
 													   for: indexPath) as? RSSItemCell
 		else { return UITableViewCell() }
+
+		if rssItems[indexPath.row].image == nil {
+			presenter?.viewNeedsImageForCellWith(rssItem: rssItems[indexPath.row])
+		}
+
 		cell.configureCell(with: rssItems[indexPath.row])
 		return cell
+	}
+}
+
+// MARK: - Protocol Conformance UITableViewDelegate
+
+extension NewsViewController: UITableViewDelegate {
+
+	func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+		presenter?.didTapNewsCell(with: rssItems[indexPath.row])
 	}
 }
 
@@ -62,6 +82,17 @@ extension NewsViewController: NewsViewProtocol {
 		DispatchQueue.main.async {
 			self.rssItems = rssItems
 			self.tableView?.reloadData()
+		}
+	}
+
+	func updateCell(with rssItem: RSSItemModel) {
+		DispatchQueue.main.async {
+			guard let index = self.rssItems.firstIndex(where: { $0.id == rssItem.id }) else { return }
+			self.rssItems[index] = rssItem
+			let indexPath = IndexPath(item: index, section: 0)
+			guard self.tableView?.indexPathsForVisibleRows?.contains(indexPath) == true else { return }
+			guard let cell = self.tableView?.cellForRow(at: indexPath) as? RSSItemCell else { return }
+			cell.configureCell(with: rssItem)
 		}
 	}
 }
